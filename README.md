@@ -67,7 +67,7 @@ node index.js --save --title "My Wallet Seed v1" --vault "Private"
 - `index.js`: CLI entry.
 - `src/gen.js`: mnemonic + derivations + CLI args.
 - `src/onepassword.js`: 1Password integration (Crypto Wallet fields).
-- `feature.md`: product spec.
+ - `PRD.md`: product spec.
 
 ## Development
 ```bash
