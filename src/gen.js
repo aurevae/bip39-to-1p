@@ -73,7 +73,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function getMnemonic(wordCount) {
+export function generateMnemonic(wordCount = DEFAULT_WORD_COUNT) {
   if (!VALID_WORD_COUNTS.has(wordCount)) {
     throw new Error("Word count must be 12 or 24");
   }
@@ -108,16 +108,14 @@ function deriveSolAddress(seed) {
   return keypair.publicKey.toBase58();
 }
 
-function main() {
-  return run();
-}
+export function buildWalletResult(mnemonic) {
+  if (!bip39.validateMnemonic(mnemonic)) {
+    throw new Error("Invalid BIP39 mnemonic");
+  }
 
-export function run(argv = process.argv.slice(2)) {
-  const args = parseArgs(argv);
-  const mnemonic = getMnemonic(args.wordCount);
   const seed = bip39.mnemonicToSeedSync(mnemonic);
 
-  const result = {
+  return {
     mnemonic,
     chains: {
       evm: {
@@ -139,6 +137,16 @@ export function run(argv = process.argv.slice(2)) {
       "If you add a BIP39 passphrase (25th word), store it separately.",
     ],
   };
+}
+
+function main() {
+  return run();
+}
+
+export function run(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
+  const mnemonic = generateMnemonic(args.wordCount);
+  const result = buildWalletResult(mnemonic);
 
   let saveError = null;
 
