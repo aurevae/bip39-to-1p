@@ -7,6 +7,7 @@ import { derivePath as deriveEd25519Path } from "ed25519-hd-key";
 import { Keypair } from "@solana/web3.js";
 import { pathToFileURL } from "url";
 import { buildNoteContent, saveToOnePassword } from "./onepassword.js";
+import { Spinner } from "./spinner.js";
 
 const bip32 = BIP32Factory(ecc);
 
@@ -20,7 +21,16 @@ const BTC_PATH = "m/84'/0'/0'/0/0";
 const SOL_PATH = "m/44'/501'/0'/0'";
 
 const BTC_TYPE = "P2WPKH (Native SegWit)";
-function parseArgs(argv) {
+function normalizeVault(value) {
+  if (typeof value !== "string") {
+    return DEFAULT_VAULT;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || DEFAULT_VAULT;
+}
+
+export function parseArgs(argv) {
   const options = {
     wordCount: DEFAULT_WORD_COUNT,
     saveTo1Password: false,
@@ -59,13 +69,13 @@ function parseArgs(argv) {
     }
 
     if (arg === "--vault" && argv[i + 1]) {
-      options.vault = argv[i + 1];
+      options.vault = normalizeVault(argv[i + 1]);
       i += 1;
       continue;
     }
 
     if (arg.startsWith("--vault=")) {
-      options.vault = arg.split("=")[1];
+      options.vault = normalizeVault(arg.split("=")[1]);
       continue;
     }
   }
@@ -143,39 +153,60 @@ function main() {
   return run();
 }
 
-export function run(argv = process.argv.slice(2)) {
+export async function run(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  const mnemonic = generateMnemonic(args.wordCount);
-  const result = buildWalletResult(mnemonic);
+  const spinner = new Spinner();
+  try {
+    const mnemonic = await spinner.spinDuring("Generating mnemonic...", () =>
+      generateMnemonic(args.wordCount),
+    );
+    const result = await spinner.spinDuring("Deriving addresses...", () =>
+      buildWalletResult(mnemonic),
+    );
 
-  let saveError = null;
+    let saveError = null;
 
-  if (args.saveTo1Password) {
-    const noteContent = buildNoteContent(result, args.title);
-    try {
-      const saved = saveToOnePassword(
-        result,
-        noteContent,
-        {
-          title: args.title,
-          vault: args.vault,
-        },
-      );
-      result.onePassword = saved;
-    } catch (err) {
-      saveError = err;
+    if (args.saveTo1Password) {
+      const noteContent = buildNoteContent(result, args.title);
+      try {
+        const saved = await spinner.spinDuring("Saving to 1Password...", () =>
+          saveToOnePassword(
+            result,
+            noteContent,
+            {
+              title: args.title,
+              vault: args.vault,
+            },
+          ),
+        );
+        result.onePassword = saved;
+      } catch (err) {
+        saveError = err;
+      }
     }
+
+    if (saveError) {
+      spinner.fail("Wallet ready, but saving to 1Password failed.");
+    } else {
+      const successMessage = args.saveTo1Password
+        ? "Wallet ready and saved to 1Password."
+        : "Wallet ready.";
+      spinner.succeed(successMessage);
+    }
+
+    console.log(JSON.stringify(result, null, 2));
+
+    if (saveError) {
+      const message =
+        saveError instanceof Error ? saveError.message : String(saveError);
+      throw new Error(`1Password save failed: ${message}`);
+    }
+
+    return result;
+  } catch (err) {
+    spinner.fail("Wallet generation failed.");
+    throw err;
   }
-
-  console.log(JSON.stringify(result, null, 2));
-
-  if (saveError) {
-    const message =
-      saveError instanceof Error ? saveError.message : String(saveError);
-    throw new Error(`1Password save failed: ${message}`);
-  }
-
-  return result;
 }
 
 const isDirectRun =
@@ -184,7 +215,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   try {
-    main();
+    await main();
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);

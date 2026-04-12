@@ -1,13 +1,17 @@
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 
 export function buildNoteContent(result, title) {
   const lines = [
     title,
     "",
     "Chains:",
-    `- EVM: ${result.chains.evm.address} | ${result.chains.evm.path}`,
-    `- BTC (${result.chains.btc.type}): ${result.chains.btc.address} | ${result.chains.btc.path}`,
-    `- SOL: ${result.chains.sol.address} | ${result.chains.sol.path}`,
+    `- EVM address: ${result.chains.evm.address}`,
+    `  path: ${result.chains.evm.path}`,
+    `- BTC address: ${result.chains.btc.address}`,
+    `  type: ${result.chains.btc.type}`,
+    `  path: ${result.chains.btc.path}`,
+    `- SOL address: ${result.chains.sol.address}`,
+    `  path: ${result.chains.sol.path}`,
     "",
     "Notes:",
     ...result.notes,
@@ -16,27 +20,52 @@ export function buildNoteContent(result, title) {
   return lines.join("\n");
 }
 
-function buildAssignments(result, noteContent) {
+export function buildAssignments(result, noteContent) {
   const assignments = [
     `Recovery phrase[concealed]=${result.mnemonic}`,
     `EVM.address[text]=${result.chains.evm.address}`,
-    `EVM.path[text]=${result.chains.evm.path}`,
     `BTC.address[text]=${result.chains.btc.address}`,
-    `BTC.path[text]=${result.chains.btc.path}`,
-    `BTC.type[text]=${result.chains.btc.type}`,
     `SOL.address[text]=${result.chains.sol.address}`,
-    `SOL.path[text]=${result.chains.sol.path}`,
     `notesPlain=${noteContent}`,
   ];
 
   return assignments;
 }
 
-export function saveToOnePassword(result, noteContent, { title, vault }) {
-  const cliCheck = spawnSync("op", ["--version"], { encoding: "utf8" });
-  if (cliCheck.error || cliCheck.status !== 0) {
+function runCommand(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (status) => {
+      resolve({
+        status,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
+
+export async function saveToOnePassword(result, noteContent, { title, vault }) {
+  const cliCheck = await runCommand("op", ["--version"]);
+  if (cliCheck.status !== 0) {
     const message =
-      cliCheck.error?.message ||
       cliCheck.stderr ||
       cliCheck.stdout ||
       "1Password CLI (op) not available or not signed in.";
@@ -53,11 +82,10 @@ export function saveToOnePassword(result, noteContent, { title, vault }) {
     ...buildAssignments(result, noteContent),
   ];
 
-  const created = spawnSync("op", args, { encoding: "utf8" });
+  const created = await runCommand("op", args);
 
-  if (created.error || created.status !== 0) {
+  if (created.status !== 0) {
     const message =
-      created.error?.message ||
       created.stderr ||
       created.stdout ||
       "Failed to create 1Password item.";

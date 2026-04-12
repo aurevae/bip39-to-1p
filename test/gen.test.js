@@ -4,6 +4,7 @@ import bip39 from "bip39";
 import {
   buildWalletResult,
   generateMnemonic,
+  parseArgs,
   run,
 } from "../src/gen.js";
 
@@ -15,7 +16,7 @@ const FIXED_ADDRESSES = {
   sol: "oeYf6KAJkLYhBuR8CiGc6L4D4Xtfepr85fuDgA9kq96",
 };
 
-function captureRun(argv) {
+async function captureRun(argv) {
   const originalLog = console.log;
   const calls = [];
   console.log = (...args) => {
@@ -23,7 +24,7 @@ function captureRun(argv) {
   };
 
   try {
-    const result = run(argv);
+    const result = await run(argv);
     return {
       result,
       stdout: calls,
@@ -54,6 +55,20 @@ test("generateMnemonic rejects unsupported word counts", () => {
   );
 });
 
+test("parseArgs defaults vault to Private when omitted", () => {
+  assert.deepEqual(parseArgs(["--save"]), {
+    wordCount: 12,
+    saveTo1Password: true,
+    title: "My Wallet Seed v1",
+    vault: "Private",
+  });
+});
+
+test("parseArgs falls back to Private when vault is blank", () => {
+  assert.equal(parseArgs(["--save", "--vault="]).vault, "Private");
+  assert.equal(parseArgs(["--save", "--vault", "   "]).vault, "Private");
+});
+
 test("buildWalletResult derives the expected EVM, BTC, and SOL addresses", () => {
   const result = buildWalletResult(FIXED_MNEMONIC);
 
@@ -82,8 +97,8 @@ test("buildWalletResult rejects invalid mnemonics", () => {
   );
 });
 
-test("run honors --words=24 and prints the same JSON it returns", () => {
-  const { result, stdout } = captureRun(["--words=24"]);
+test("run honors --words=24 and prints the same JSON it returns", async () => {
+  const { result, stdout } = await captureRun(["--words=24"]);
 
   assert.equal(result.mnemonic.split(" ").length, 24);
   assert.equal(stdout.length, 1);
