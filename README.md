@@ -6,7 +6,7 @@ Local-first CLI to generate a BIP39 mnemonic, derive multi-chain addresses (EVM,
 - Default 12-word mnemonic (supports 24).
 - Derives: EVM `m/44'/60'/0'/0/0`, BTC Native SegWit `m/84'/0'/0'/0/0`, SOL `m/44'/501'/0'/0'`.
 - Prints structured JSON to stdout for offline copy-paste.
-- Optional 1Password save via `op` CLI using the Crypto Wallet category with dedicated fields (recovery phrase concealed, per-chain address/path, BTC type, notes).
+- Optional 1Password save via `op` CLI using the Crypto Wallet category with dedicated fields (recovery phrase concealed, per-chain address, notes with derivation metadata).
 
 ## Requirements
 - Node.js 18+ (ESM).
@@ -25,13 +25,16 @@ node index.js --words 24
 
 # save to 1Password (Crypto Wallet item)
 node index.js --save --title "My Wallet Seed v1" --vault "Private"
+
+# save to the default Private vault
+node index.js --save
 ```
 
 ## CLI flags
 - `--words <12|24>`: mnemonic size (default 12).
 - `--save`/`--save-to-1p`: create a 1Password Crypto Wallet item.
 - `--title <string>`: 1Password item title (default `My Wallet Seed v1`).
-- `--vault <name>`: target vault (default `Private`).
+- `--vault <name>`: optional target vault. If omitted, defaults to `Private`.
 
 ## Output shape (stdout)
 ```json
@@ -53,8 +56,8 @@ node index.js --save --title "My Wallet Seed v1" --vault "Private"
 - Category: Crypto Wallet.
 - Fields set:
   - `Recovery phrase` (concealed).
-  - EVM/BTC/SOL `address` and `path`; BTC also stores `type`.
-  - Notes include the safety reminders above.
+  - EVM/BTC/SOL `address`.
+  - Notes include chain metadata such as derivation `path` and BTC `type`, plus the safety reminders above.
 - The CLI still prints JSON so you can verify or backfill manually.
 
 ## Security checklist
@@ -73,6 +76,8 @@ node index.js --save --title "My Wallet Seed v1" --vault "Private"
 ```bash
 npm start              # generate once
 node index.js --save   # test 1Password save (requires op)
+npm test               # run the test suite
 ```
 
-No tests yet; add integration tests before distribution.
+The project includes automated tests using Node's built-in test runner, including
+fixed-mnemonic derivation checks and OKX SDK cross-check coverage.
