@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildWalletResult } from "../src/gen.js";
-import { buildAssignments, buildNoteContent } from "../src/onepassword.js";
+import {
+  buildCreateArgs,
+  buildItemTemplate,
+  buildNoteContent,
+} from "../src/onepassword.js";
 
 const FIXED_MNEMONIC = "test test test test test test test test test test test junk";
 
@@ -18,16 +22,58 @@ test("buildNoteContent puts path and type metadata into notes", () => {
   assert.match(notes, /  path: m\/44'\/501'\/0'\/0'/);
 });
 
-test("buildAssignments only saves address fields and leaves metadata in notes", () => {
+test("buildItemTemplate puts sensitive content in a concealed stdin payload", () => {
   const result = buildWalletResult(FIXED_MNEMONIC);
   const notes = buildNoteContent(result, "My Wallet Seed v1");
-  const assignments = buildAssignments(result, notes);
+  const template = buildItemTemplate(result, notes, "My Wallet Seed v1");
 
-  assert.deepEqual(assignments, [
-    `Recovery phrase[concealed]=${result.mnemonic}`,
-    `EVM.address[text]=${result.chains.evm.address}`,
-    `BTC.address[text]=${result.chains.btc.address}`,
-    `SOL.address[text]=${result.chains.sol.address}`,
-    `notesPlain=${notes}`,
+  assert.equal(template.title, "My Wallet Seed v1");
+  assert.equal(template.category, "CRYPTO_WALLET");
+  assert.deepEqual(template.fields, [
+    {
+      id: "recoveryPhrase",
+      label: "Recovery phrase",
+      type: "CONCEALED",
+      value: result.mnemonic,
+    },
+    {
+      id: "evmAddress",
+      label: "EVM address",
+      type: "STRING",
+      value: result.chains.evm.address,
+    },
+    {
+      id: "btcAddress",
+      label: "BTC address",
+      type: "STRING",
+      value: result.chains.btc.address,
+    },
+    {
+      id: "solAddress",
+      label: "SOL address",
+      type: "STRING",
+      value: result.chains.sol.address,
+    },
+    {
+      id: "notesPlain",
+      label: "notesPlain",
+      type: "STRING",
+      purpose: "NOTES",
+      value: notes,
+    },
   ]);
+});
+
+test("buildCreateArgs carries no mnemonic or notes in process arguments", () => {
+  const args = buildCreateArgs("Private");
+
+  assert.deepEqual(args, [
+    "item",
+    "create",
+    "--category=Crypto Wallet",
+    "--vault=Private",
+    "--format=json",
+    "-",
+  ]);
+  assert.doesNotMatch(args.join(" "), /Recovery phrase|test test|Notes:/);
 });

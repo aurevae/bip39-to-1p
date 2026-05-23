@@ -20,23 +20,73 @@ export function buildNoteContent(result, title) {
   return lines.join("\n");
 }
 
-export function buildAssignments(result, noteContent) {
-  const assignments = [
-    `Recovery phrase[concealed]=${result.mnemonic}`,
-    `EVM.address[text]=${result.chains.evm.address}`,
-    `BTC.address[text]=${result.chains.btc.address}`,
-    `SOL.address[text]=${result.chains.sol.address}`,
-    `notesPlain=${noteContent}`,
-  ];
-
-  return assignments;
+export function buildItemTemplate(result, noteContent, title) {
+  return {
+    title,
+    category: "CRYPTO_WALLET",
+    fields: [
+      {
+        id: "recoveryPhrase",
+        label: "Recovery phrase",
+        type: "CONCEALED",
+        value: result.mnemonic,
+      },
+      {
+        id: "evmAddress",
+        label: "EVM address",
+        type: "STRING",
+        value: result.chains.evm.address,
+      },
+      {
+        id: "btcAddress",
+        label: "BTC address",
+        type: "STRING",
+        value: result.chains.btc.address,
+      },
+      {
+        id: "solAddress",
+        label: "SOL address",
+        type: "STRING",
+        value: result.chains.sol.address,
+      },
+      {
+        id: "notesPlain",
+        label: "notesPlain",
+        type: "STRING",
+        purpose: "NOTES",
+        value: noteContent,
+      },
+    ],
+  };
 }
 
-function runCommand(command, args) {
+export function buildCreateArgs(vault) {
+  return [
+    "item",
+    "create",
+    "--category=Crypto Wallet",
+    `--vault=${vault}`,
+    "--format=json",
+    "-",
+  ];
+}
+
+function runCommand(command, args, input) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, {
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
+
+    if (input !== undefined) {
+      child.stdin.on("error", (error) => {
+        if (error.code !== "EPIPE") {
+          reject(error);
+        }
+      });
+      child.stdin.end(input);
+    }
 
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
@@ -72,17 +122,12 @@ export async function saveToOnePassword(result, noteContent, { title, vault }) {
     throw new Error(message.trim());
   }
 
-  const args = [
-    "item",
-    "create",
-    "--category=Crypto Wallet",
-    `--title=${title}`,
-    `--vault=${vault}`,
-    "--format=json",
-    ...buildAssignments(result, noteContent),
-  ];
-
-  const created = await runCommand("op", args);
+  const template = buildItemTemplate(result, noteContent, title);
+  const created = await runCommand(
+    "op",
+    buildCreateArgs(vault),
+    JSON.stringify(template),
+  );
 
   if (created.status !== 0) {
     const message =
