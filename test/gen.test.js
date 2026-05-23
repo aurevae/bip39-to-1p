@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import bip39 from "bip39";
 import {
+  buildPrintedResult,
   buildWalletResult,
   generateMnemonic,
   parseArgs,
@@ -16,7 +17,7 @@ const FIXED_ADDRESSES = {
   sol: "oeYf6KAJkLYhBuR8CiGc6L4D4Xtfepr85fuDgA9kq96",
 };
 
-async function captureRun(argv) {
+async function captureRun(argv, dependencies) {
   const originalLog = console.log;
   const calls = [];
   console.log = (...args) => {
@@ -24,7 +25,7 @@ async function captureRun(argv) {
   };
 
   try {
-    const result = await run(argv);
+    const result = await run(argv, dependencies);
     return {
       result,
       stdout: calls,
@@ -103,4 +104,28 @@ test("run honors --words=24 and prints the same JSON it returns", async () => {
   assert.equal(result.mnemonic.split(" ").length, 24);
   assert.equal(stdout.length, 1);
   assert.deepEqual(JSON.parse(stdout[0]), result);
+});
+
+test("buildPrintedResult conceals the mnemonic for saved output", () => {
+  const result = buildWalletResult(FIXED_MNEMONIC);
+
+  assert.deepEqual(buildPrintedResult(result, false), result);
+  assert.equal("mnemonic" in buildPrintedResult(result, true), false);
+  assert.deepEqual(buildPrintedResult(result, true).chains, result.chains);
+});
+
+test("run with --save does not print the mnemonic after saving", async () => {
+  const { result, stdout } = await captureRun(["--save"], {
+    save: async () => ({
+      id: "saved-item",
+      title: "My Wallet Seed v1",
+      vault: "Private",
+    }),
+  });
+  const printed = JSON.parse(stdout[0]);
+
+  assert.equal(typeof result.mnemonic, "string");
+  assert.equal("mnemonic" in printed, false);
+  assert.equal(printed.onePassword.id, "saved-item");
+  assert.deepEqual(printed.chains, result.chains);
 });

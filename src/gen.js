@@ -153,7 +153,19 @@ function main() {
   return run();
 }
 
-export async function run(argv = process.argv.slice(2)) {
+export function buildPrintedResult(result, isSavedOutput) {
+  if (!isSavedOutput) {
+    return result;
+  }
+
+  const { mnemonic: _mnemonic, ...printedResult } = result;
+  return printedResult;
+}
+
+export async function run(
+  argv = process.argv.slice(2),
+  { save = saveToOnePassword } = {},
+) {
   const args = parseArgs(argv);
   const spinner = new Spinner();
   try {
@@ -170,7 +182,7 @@ export async function run(argv = process.argv.slice(2)) {
       const noteContent = buildNoteContent(result, args.title);
       try {
         const saved = await spinner.spinDuring("Saving to 1Password...", () =>
-          saveToOnePassword(
+          save(
             result,
             noteContent,
             {
@@ -194,7 +206,9 @@ export async function run(argv = process.argv.slice(2)) {
       spinner.succeed(successMessage);
     }
 
-    console.log(JSON.stringify(result, null, 2));
+    console.log(
+      JSON.stringify(buildPrintedResult(result, args.saveTo1Password), null, 2),
+    );
 
     if (saveError) {
       const message =

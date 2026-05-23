@@ -5,8 +5,8 @@ Local-first CLI to generate a BIP39 mnemonic, derive multi-chain addresses (EVM,
 ## Features
 - Default 12-word mnemonic (supports 24).
 - Derives: EVM `m/44'/60'/0'/0/0`, BTC Native SegWit `m/84'/0'/0'/0/0`, SOL `m/44'/501'/0'/0'`.
-- Prints structured JSON to stdout for offline copy-paste.
-- Optional 1Password save via `op` CLI using the Crypto Wallet category with dedicated fields (recovery phrase concealed, per-chain address, notes with derivation metadata).
+- Prints structured JSON to stdout for offline copy-paste when not saving directly.
+- Optional 1Password save via `op` CLI using a stdin JSON template, so the recovery phrase does not appear in process arguments.
 
 ## Requirements
 - Node.js 18+ (ESM).
@@ -54,11 +54,13 @@ node index.js --save
 
 ## 1Password save details
 - Category: Crypto Wallet.
+- The item JSON template, including the recovery phrase, is passed to `op` over stdin rather than as command-line assignments.
 - Fields set:
   - `Recovery phrase` (concealed).
   - EVM/BTC/SOL `address`.
   - Notes include chain metadata such as derivation `path` and BTC `type`, plus the safety reminders above.
-- The CLI still prints JSON so you can verify or backfill manually.
+- With `--save`, stdout contains the derived public addresses and saved item metadata, but does not contain the mnemonic.
+- Run without `--save` only when you intentionally need to capture the mnemonic manually.
 
 ## Security checklist
 - Run offline for generation if possible.
