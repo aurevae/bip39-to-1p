@@ -28,38 +28,49 @@ test("buildItemTemplate puts sensitive content in a concealed stdin payload", ()
   const template = buildItemTemplate(result, notes, "My Wallet Seed v1");
 
   assert.equal(template.title, "My Wallet Seed v1");
-  assert.equal(template.category, "CRYPTO_WALLET");
+  assert.equal(template.category, "CUSTOM");
+  assert.equal(template.category_id, "115");
+  assert.deepEqual(template.sections, [{ id: "wallet", label: "Wallet" }]);
   assert.deepEqual(template.fields, [
     {
+      id: "notesPlain",
+      type: "STRING",
+      purpose: "NOTES",
+      label: "notesPlain",
+      value: notes,
+    },
+    {
       id: "recoveryPhrase",
-      label: "Recovery phrase",
       type: "CONCEALED",
+      label: "recovery phrase",
       value: result.mnemonic,
     },
     {
-      id: "evmAddress",
-      label: "EVM address",
+      id: "password",
+      type: "CONCEALED",
+      label: "password",
+      value: "",
+    },
+    {
+      id: "walletAddress",
+      section: { id: "wallet", label: "Wallet" },
       type: "STRING",
+      label: "wallet address",
       value: result.chains.evm.address,
     },
     {
       id: "btcAddress",
-      label: "BTC address",
+      section: { id: "wallet", label: "Wallet" },
       type: "STRING",
+      label: "BTC address",
       value: result.chains.btc.address,
     },
     {
       id: "solAddress",
+      section: { id: "wallet", label: "Wallet" },
+      type: "STRING",
       label: "SOL address",
-      type: "STRING",
       value: result.chains.sol.address,
-    },
-    {
-      id: "notesPlain",
-      label: "notesPlain",
-      type: "STRING",
-      purpose: "NOTES",
-      value: notes,
     },
   ]);
 });
@@ -70,10 +81,9 @@ test("buildCreateArgs carries no mnemonic or notes in process arguments", () => 
   assert.deepEqual(args, [
     "item",
     "create",
-    "--category=Crypto Wallet",
     "--vault=Private",
     "--format=json",
-    "-",
+    "--template=/dev/stdin",
   ]);
   assert.doesNotMatch(args.join(" "), /Recovery phrase|test test|Notes:/);
 });
