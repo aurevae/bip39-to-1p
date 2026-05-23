@@ -1,5 +1,9 @@
 import { spawn } from "child_process";
 
+// `op item template get "Crypto Wallet"` identifies the built-in template this way.
+const CRYPTO_WALLET_CATEGORY = "CUSTOM";
+const CRYPTO_WALLET_CATEGORY_ID = "115";
+
 export function buildNoteContent(result, title) {
   const lines = [
     title,
@@ -21,40 +25,56 @@ export function buildNoteContent(result, title) {
 }
 
 export function buildItemTemplate(result, noteContent, title) {
+  const walletSection = {
+    id: "wallet",
+    label: "Wallet",
+  };
+
   return {
     title,
-    category: "CRYPTO_WALLET",
+    category: CRYPTO_WALLET_CATEGORY,
+    category_id: CRYPTO_WALLET_CATEGORY_ID,
+    sections: [walletSection],
     fields: [
       {
+        id: "notesPlain",
+        type: "STRING",
+        purpose: "NOTES",
+        label: "notesPlain",
+        value: noteContent,
+      },
+      {
         id: "recoveryPhrase",
-        label: "Recovery phrase",
         type: "CONCEALED",
+        label: "recovery phrase",
         value: result.mnemonic,
       },
       {
-        id: "evmAddress",
-        label: "EVM address",
+        id: "password",
+        type: "CONCEALED",
+        label: "password",
+        value: "",
+      },
+      {
+        id: "walletAddress",
+        section: walletSection,
         type: "STRING",
+        label: "wallet address",
         value: result.chains.evm.address,
       },
       {
         id: "btcAddress",
-        label: "BTC address",
+        section: walletSection,
         type: "STRING",
+        label: "BTC address",
         value: result.chains.btc.address,
       },
       {
         id: "solAddress",
+        section: walletSection,
+        type: "STRING",
         label: "SOL address",
-        type: "STRING",
         value: result.chains.sol.address,
-      },
-      {
-        id: "notesPlain",
-        label: "notesPlain",
-        type: "STRING",
-        purpose: "NOTES",
-        value: noteContent,
       },
     ],
   };
@@ -64,10 +84,9 @@ export function buildCreateArgs(vault) {
   return [
     "item",
     "create",
-    "--category=Crypto Wallet",
     `--vault=${vault}`,
     "--format=json",
-    "-",
+    "--template=/dev/stdin",
   ];
 }
 
